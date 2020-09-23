@@ -1,0 +1,271 @@
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/*                                                                           */
+/*                  This file is part of the program and library             */
+/*         SCIP --- Solving Constraint Integer Programs                      */
+/*                                                                           */
+/*    Copyright (C) 2002-2014 Konrad-Zuse-Zentrum                            */
+/*                            fuer Informationstechnik Berlin                */
+/*                                                                           */
+/*  SCIP is distributed under the terms of the ZIB Academic License.         */
+/*                                                                           */
+/*  You should have received a copy of the ZIB Academic License              */
+/*  along with SCIP; see the file COPYING. If not email to scip@zib.de.      */
+/*                                                                           */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/**@file   probdata_coloring.h
+ * @brief  Problem data for coloring problem
+ * @author Timo Berthold
+ * @author Stefan Heinz
+ *
+ * This file handles the main problem data used in that project. For more details see \ref PROBLEMDATA page.
+ */
+
+/*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
+
+#ifndef __SCIP_PROBDATA_COLORING__
+#define __SCIP_PROBDATA_COLORING__
+
+#include "scip/scip.h"
+
+#define DEPOT (n-1)
+#define IS_DEPOT(i) (i==n-1)
+#define IS_TYPE1(i) (i<nU1)
+#define IS_TYPE2(i) (i>=nU1+nW && i<n-1) /* tava  i < n */
+#define IS_STEINER(i) (i>=nU1 && i<nU1+nW)
+#define IS_ASSYMETRIC ( m == nArcs )
+#define EDGE(i,j) ( IS_ASSYMETRIC || i < j ? A[i][j] : A[j][i] )
+#define EPSILON 0.000001
+/* Setando alpha */
+#define ALPHA  0.6 /* 0.5 */
+
+
+/** structure for each edge (i,j) of the input graph */
+typedef struct{
+  int i; 
+  int j;
+  int custo_ring; /**< ring edge cost */
+  int custo_tree; /**< tree edge cost */
+  int iTreeArc; /**< number associated (index) to the edge (i,j) in the array treeArc */
+  int iArc0; /**< number associated (index) to the edge (i,j) in the array arc0  */
+}edgeType;
+
+typedef struct{
+   int pai;
+   int filhos;
+   int clientes;
+   int custo;
+} setType;
+
+
+/** oriented arc (i,j) */
+typedef struct{
+  int i; /**< tail */
+  int j; /**< head */
+}edgeT;
+
+/** a ring-tree structure */
+typedef struct{
+  int nRT; /**< total of vertices visited by the ring-tree */
+  int *RT; /**< array of the visited vertices */
+  int col; /**< */
+  int nEdgeRT; /**< total of arcs in the ring-tree */
+  int *edgeRT; /**< array of index to oriented arcs in the ring-tree */
+  double cost; /**< the ring-tree cost */
+  double redCost; /**< reduced cost of the ring-tree */
+  int temFc;
+} ringTree;
+/*
+typedef struct
+{
+    int nRT; // total de vertices da ring-tree
+    int *RT; // vertices da ring-tree
+    int col; // identificador para a ring-tree (0 = coluna inicial, 1 = coluna do pricing exato, 2 = coluna da heuristica
+    int nEdgeRT; // total de arestas da ring-tree
+    edgeT *edgeRT; // as arestas orientadas da ring-tree
+  double cost;
+} ringTreeTipo2;
+*/
+
+/** list of ring-trees */
+typedef struct ringTreeNode{
+  ringTree r; 
+  struct ringTreeNode *next; 
+} ringTreeList;
+
+/** sets up the problem data */
+extern
+SCIP_RETCODE SCIPprobdataCreate(
+   SCIP*                 scip,               /**< SCIP data structure */
+   const char*           probname,           /**< problem name */
+   int**                 A,            /**< matrix of adjacency */
+   int*                  V,            /**< array of vertex ids */
+   int*                  _V,           /**< inverse of array of vertex ids */
+   int                   n,            /**< number of vertices */
+   int                   m,            /**< number of edges */
+   int                   rings,        /**< max number of rings */
+   int                   nU1,          /**< total of customers of type 1 */
+   int                   nU2,          /**< total of customers of type 2 */
+   int                   nW,           /**< total of Steiner points */
+   SCIP_Longint          Q,            /**< ring-tree capacity */
+   SCIP_Longint          Qt,            /**< tree capacity */
+   edgeType* edges,  /**< edges[0..m-1] = original edges of the graph, edges[0..nArcs-1] = oriented arcs */
+   int* treeArcs, /**< oriented tree arcs vector */
+   int nTreeArcs, /**< total of oriented tree arcs */
+   int nArcs, /**< total of oriented arcs */
+   int nTreeArcs0, /**< total of oriented tree arcs disconsidering arcs through depot  */
+   int* arcs0, /**< oriented edges of the graph induzido por V-{depot} */
+   int nArcs0, /**< total of arcs0 */
+   int* cf
+   );
+
+
+typedef struct column
+{
+   int nconsids; /**< total of constraints*/
+   int* consids; /**< index of PMR constraints */
+   int custo;
+   double cr;
+   int type; /**< column type */
+  struct column* next;
+} columnType;
+
+extern
+int set_primal_solution(SCIP* scip,SCIP_PROBDATA* probdata, int n,int m,int** A,int* V,int* _V, edgeType* edges, int nArcs, int rings, int nU1, int nU2, int nW, int Q, int Qt, int* cf, ringTree* solution, int nRingTrees,   SCIP_CONS** conss, SCIP_VAR** vars);
+
+extern
+int includeColumn(int* consids, int nconsids, int custo, double cr, columnType** poolOfColumns, int tam, int type);
+
+/** returns array of all variables ordered in the way they got generated */
+extern
+SCIP_VAR** SCIPprobdataGetVars(
+   SCIP_PROBDATA*        probdata            /**< problem data */
+   );
+
+/** returns number of variables */
+extern
+int SCIPprobdataGetNVars(
+   SCIP_PROBDATA*        probdata            /**< problem data */
+   );
+
+/** returns array of set partitioning constrains */
+extern
+SCIP_CONS** SCIPprobdataGetConss(
+   SCIP_PROBDATA*        probdata            /**< problem data */
+   );
+
+/** returns array of set partitioning constrains */
+extern
+int SCIPprobdataGetNcons(
+   SCIP_PROBDATA*        probdata            /**< problem data */
+			 );
+/** adds given variable to the problem data */
+extern
+SCIP_RETCODE SCIPprobdataAddVar(
+   SCIP*                 scip,               /**< SCIP data structure */
+   SCIP_PROBDATA*        probdata,           /**< problem data */
+   SCIP_VAR*             var                 /**< variables to add */
+   );
+
+/** returns matrix of adjacency */
+extern
+int** SCIPprobdataGetA(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+		       );
+extern
+/** returns vector of vertices */
+int* SCIPprobdataGetV(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+		      );
+/** returns total of original edges */
+extern
+int SCIPprobdataGetM(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+		     );
+/** returns number of rings */
+extern
+int SCIPprobdataGetRings(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			 );
+/** returns number of rings */
+extern
+SCIP_Longint SCIPprobdataGetQ(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			      );
+/** returns the capacity of tree */
+extern
+SCIP_Longint SCIPprobdataGetQt(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+            );
+/** returns matrix of edge distances */
+extern
+edgeType* SCIPprobdataGetEdges(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			       );
+/** returns matrix of edge distances */
+extern
+int* SCIPprobdataGetTreeArcs(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			     );
+/** returns total of Tree arcs */
+extern
+int SCIPprobdataGetNtreeArcs(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			     );
+/** returns total of arcs */
+extern
+int SCIPprobdataGetNarcs(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			 );
+/** returns total of Tree arcs0 */
+extern
+int SCIPprobdataGetNtreeArcs0(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			      );
+/** returns total of arcs0 */
+extern
+int SCIPprobdataGetNarcs0(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			  );
+/** returns vector of arcs0 */
+extern
+int* SCIPprobdataGetArcs0(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+			  );
+/** returns total of customers of type 2 */
+extern
+int SCIPprobdataGetU(
+  SCIP_PROBDATA* probdata
+		     );
+/** returns total of customers of type 2 */
+extern
+int SCIPprobdataGetU2(
+  SCIP_PROBDATA* probdata
+		      );
+/** returns total of Steiner vertices */
+extern
+int SCIPprobdataGetW(
+  SCIP_PROBDATA* probdata
+		     );
+/** returns total of vertices */
+extern
+int SCIPprobdataGetN(
+  SCIP_PROBDATA*        probdata            /**< problem data */
+		     );
+/** returns array inverse of vertex ids */
+extern
+int* SCIPprobdataGetIds(
+   SCIP_PROBDATA*        probdata            /**< problem data */
+			);
+/** returns Probname of the instance */
+extern
+char* SCIPprobdataGetProbname(
+   SCIP_PROBDATA*        probdata            /**< problem data */
+			      );
+/** FABIO */
+extern
+int* SCIPprobdataGetcf(
+   SCIP_PROBDATA*        probdata            /**< problem data */
+   );
+
+#endif
